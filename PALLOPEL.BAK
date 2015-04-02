@@ -1,0 +1,440 @@
+Program pallopeli;
+Uses Crt, Grafiikka, Graph;
+
+var
+   ch : char; {keypressed}
+   x1, y1, x2, y2 : integer; {palkki}
+   aix1, aiy1, aix2, aiy2, aikeski, kohde : integer; {AI}
+   pallot : Array[1..7, 1..100] of integer;
+   pallojenmaara, i, rand, keskix : integer;
+   seuraavatemp, seuraava : integer;
+   menu : Array[1..5] of string;
+   korostus, lopu : integer;
+   {i = loopit
+   pallojenmaara = pallojen m„„r„ peliss„
+   rand = lyhyt randomointi pallon suuntaan liittyen kun se kimpoaa
+   kohde = se pallo joka seuraavaksi osuus ai}
+
+   {xp1, yp1, xp2, yp2, deltax, deltay, rand : integer; {pallo}
+   {pallot[1, 1] = xp1
+   pallot[2, 1] = yp1
+   pallot[3, 1] = xp2
+   pallot[4, 1] = yp2
+   pallot[5, 1] = deltax
+   pallot[6, 1] = deltay
+   pallot[7, 1] = kuinka monen loopin kuluttua pallo osuu ai
+               }
+   aikesk:real;
+
+const
+   {yleiset}
+   dela = 10; {delay loopin v„liss„}
+   ylaraja = 5; {marginaali ylh„„ll„}
+   alaraja = 475; {marginaali alhaalla}
+   vasenraja = 5; {marginaali vasemmalla}
+   oikearaja = 634; {marginaali oikealla}
+
+   {pallo}
+   ballspeed = 5; {pallon x ja y muutos summa maksimi}
+   maxdeltax = 3; {pallon sivuttaisliikkeen maksimi}
+   koko = 6; {pallon koko}
+   spawnpointx = 310; {pallon spawnpointit}
+   spawnpointy = 230;
+
+   {palkit}
+   pituus = 100; {ai ja pelaajan palkkien koko}
+
+          {pelaajan}
+          nopeus = 10; {pelaajan palkin liikkuminen per loop}
+
+          {ai}
+          ainopeus = 3; {ai nopeus per loop}
+
+Procedure lisaapallo;
+Begin
+     inc(pallojenmaara, 1);
+     seuraava := 9999;
+     pallot[1, pallojenmaara] := spawnpointx;
+     pallot[2, pallojenmaara] := spawnpointy;
+     pallot[3, pallojenmaara] := pallot[1, pallojenmaara] + koko;
+     pallot[4, pallojenmaara] := pallot[2, pallojenmaara] + koko;
+     pallot[5, pallojenmaara] := random(maxdeltax)+1;
+     pallot[6, pallojenmaara] := ballspeed - pallot[5, pallojenmaara];
+End;
+
+Procedure ylos; {pelaaja liikkuu yl”s}
+Begin
+     dec(y1, nopeus);
+     dec(y2, nopeus);
+End;
+Procedure alas; {pelaaja liikkuu alas}
+Begin
+     inc(y1, nopeus);
+     inc(y2, nopeus);
+End;
+Procedure palkki; {pelaajan liikkuminen}
+Begin
+    if keypressed then {ajetaan vain, mik„li n„pp„int„ on painettu}
+        Begin
+
+        ch:=ReadKey;
+        setcolor(black);
+        rectangle(x1, y1, x2, y2); {Poistetaan palkki}
+
+        case ch of {mihin suuntaan kuljetaan eri n„pp„imill„}
+             #101: alas;
+             #114: alas;
+             #80: alas;
+
+             #105: ylos;
+             #111: ylos;
+             #72: ylos;
+
+             #32: lisaapallo; {lis„t„„n pallo painamalla enter. debug tool}
+        End;
+
+        if y1 <= ylaraja then {yl„marginaali palkille}
+        Begin
+             y1 := ylaraja;
+             y2 := y1 + pituus;
+        end;
+        if y2 >= alaraja then {alamarginaali palkille}
+        Begin
+             y2 := alaraja;
+             y1 := alaraja - pituus;
+        End;
+
+
+     End;
+
+     setcolor(white);
+     rectangle(x1, y1, x2, y2); {piirret„„n palkki}
+End; {lopetetaan aliohjelma palkki}
+
+Procedure alku; {alku}
+Begin
+
+     grafiikkatilaan;
+     setcolor(white);
+     rectangle(x1, y1, x2, y2); {piirret„„n palkki}
+
+     rectangle(aix1, aiy1, aix2, aiy2); {piirret„„n AI}
+End;
+
+Procedure muuttujat;
+Begin
+     randomize;
+     {asetetaan palkin sijainti}
+     x1 := 5;
+     y1 := 5;
+     x2 := 10;
+     y2 := y1 + pituus;
+
+     pallojenmaara := 0;
+
+     {AI}
+     aix1 := 629;
+     aiy1 := 5;
+     aix2 := aix1 + 5;
+     aiy2 := aiy1 + pituus;
+
+     keskix := round((ylaraja + alaraja) / 2);
+
+End;
+
+Procedure respawn(suunta : integer); {jos AI tai pelaaja ei osu palloon, se laitetaan takasin keskelle kentt„„}
+Begin
+     seuraava := 9999;
+     pallot[5, i] := random(maxdeltax)+1;
+     pallot[6, i] := ballspeed - pallot[5, i];
+
+     pallot[1, i] := spawnpointx;
+     pallot[2, i] := spawnpointy;
+     setcolor(black);
+     pallot[5, i] := pallot[5, i] * suunta;
+
+     rand := random(2)+0;
+     if rand = 1 then
+     begin
+          pallot[6, i] := pallot[6, i]*-1;
+     end;
+End;
+
+Procedure osuma(puoli : integer); {pallon kimpoaminen palkeista}
+Begin
+     seuraava := 9999;
+     kohde := 9999;
+     if puoli = 1 then {pallon k„ytt„ytyminen kun osuu AI}
+     begin
+          pallot[5, i] := random(maxdeltax)+1; {luodaan uusi x}
+          if pallot[6, i] <= 0 then {jos pallo menee yl”s}
+          begin
+               pallot[6, i] := ballspeed - pallot[5, i]; {luodaan uusi y muutos x pohjalta}
+               pallot[6, i] := pallot[6, i]*-1; {muutetaan se menem„„n yl”s}
+          end
+          else {jos pallo menee alas}
+          begin
+               pallot[6, i] := ballspeed - pallot[5, i]; {luodaan uusi y muutos x pohjalta}
+          end;
+          pallot[5, i] := pallot[5, i]*-1; {pallon muutos x on negatiivinen}
+     end
+     else {pallon k„ytt„ytyminen kun osuu pelaajaan}
+     begin
+          pallot[5, i] := random(maxdeltax)+1; {pallon muutos x on positiivinen}
+          if pallot[6, i] <= 0 then {jos pallo menee yl”sp„in}
+          begin
+               pallot[6, i] := ballspeed - pallot[5, i];
+               {luodaan uusi yl”smenonopeus muutos x pohjalta}
+               pallot[6, i] := pallot[6, i]*-1; {muutetaan negatiiviseksi jolloin menee yl”s}
+          end
+          else
+          begin
+               pallot[6, i] := ballspeed - pallot[5, i]; {mik„li pallo meneekin alas}
+          end;
+     end;
+End;
+
+Procedure pallo;
+Begin
+     for i:=1 to pallojenmaara do
+     begin
+     setcolor(black);
+     rectangle(pallot[1, i], pallot[2, i], pallot[3, i], pallot[4, i]);
+
+
+     pallot[1, i] := pallot[1, i] + pallot[5, i];
+     pallot[2, i] := pallot[2, i] + pallot[6, i];
+     pallot[3, i] := pallot[1, i] + koko;
+     pallot[4, i] := pallot[2, i] + koko;
+     setcolor(white);
+
+
+     if (pallot[2,i] >= alaraja) OR (pallot[2, i] <= ylaraja) then {pallon kimpoaminen}
+     begin
+           pallot[6, i] := pallot[6, i]*(-1);
+     End;
+
+     {yl„ ja alakimpoilu}
+
+     {tarkastatetaan osuuko pallo palkkiin. Jos osuu niin muutetaan pallon
+     suuntaa, mik„li ei niin pallo respawnaa keskelle}
+
+     {AI puolella}
+     if pallot[3, i] > aix1 then
+     begin
+          if (pallot[2, i] < aiy2) AND (pallot[4, i] > aiy1) then
+          begin
+               osuma(1);
+          end
+          else
+          begin
+               respawn(-1);
+          end;
+     end;  {pelaajan puoli}
+     if pallot[1, i] < x2 then
+     begin
+          if (pallot[2, i] < y2) AND (pallot[4, i] > y1) then
+          begin
+               osuma(0);
+          end
+          else
+          begin
+               respawn(1);
+          end;
+     end;
+
+     rectangle(pallot[1, i], pallot[2,i], pallot[3, i], pallot[4, i]);
+     end;
+end;
+
+procedure aiup;
+Begin
+     Dec(aiy1, ainopeus);
+     Dec(aiy2, ainopeus);
+End;
+
+procedure aidown;
+Begin
+     Inc(aiy1, ainopeus);
+     Inc(aiy2, ainopeus);
+End;
+
+Procedure ai; {ohjaa vihollista}
+Begin
+     aikeski := aiy1 + aiy2;
+     aikesk := aikeski / 2;
+     aikeski := round(aikesk); {ai keskipiste}
+
+     setcolor(black);
+     rectangle(aix1, aiy1, aix2, aiy2); {Poistetaan edellinen 'frame'}
+
+     {ai liikkuu siihen suuntaan miss„ pallo on}
+
+     for i:=1 to pallojenmaara do
+     begin
+          if pallot[5, i] > 0 then
+          begin
+               seuraavatemp := round((aix1 - pallot[3, i]) / pallot[5, i]);
+               if (seuraavatemp < seuraava) OR (seuraava = 0) then
+               begin
+                    seuraava := i;
+               end;
+          end;
+     end;
+
+
+     if seuraava <> 9999 then
+     begin
+          if pallot[2, seuraava] < aikeski then
+             aiup;
+
+          if pallot[2, seuraava] > aikeski then
+             aidown;
+     End
+     else
+     begin
+          if keskix < aikeski then
+             aiup;
+          if keskix > aikeski then
+             aidown;
+     End;
+
+     {estet„„n liikkuminen ulkopuolelle}
+     if aiy1 <= ylaraja then
+     Begin
+          aiy1 := ylaraja;
+          aiy2 := aiy1 + pituus;
+     end;
+     if aiy2 >= alaraja then
+     Begin
+          aiy2 := alaraja;
+          aiy1 := aiy2 - pituus;
+     End;
+     {liikkumisen esto loppu}
+
+     setcolor(white);
+     rectangle(aix1, aiy1, aix2, aiy2); {piirret„„n}
+
+End;
+
+Procedure loppu; {ajetaan kun peli lopetetaan}
+Begin
+     setcolor(black);
+     rectangle(x1, y1, x2, y2); {poistetaan pelaajan palkki kun peli lopetetaan}
+     rectangle(aix1, aiy1, aix2, aiy2); {poistetaan AI}
+     for i:=1 to pallojenmaara do
+     begin
+          rectangle(pallot[1, i], pallot[2, i], pallot[3, i], pallot[4, i]); {poistetaan pallo}
+     end;
+End;
+
+Procedure leavegame;
+Begin
+     muuttujat;
+     textmode(lastmode);
+     loppu; {poistaa ruudulta kaiken, ettei taustalle j„„ mit„„n}
+     pallojenmaara := 1;
+     i := 1;
+     respawn(1);
+
+End;
+
+procedure alku_procedyress;
+begin
+     ClrScr;
+  muuttujat; {asetetaan muuttujat. randomize}
+  lisaapallo; {lis„t„„n ensimm„inen pallo}
+  {Aloitetaan peli}
+
+
+
+
+        menu[1] := 'Start Game';
+        menu[2] := 'Help';
+        menu[3] := 'Release Notes';
+        menu[4] := 'Exit';
+        korostus := 1;
+end;
+
+
+Begin
+ alku_procedyress;
+  while lopu = 0 do {looppi jossa kaikki py”rii }
+  begin
+  repeat {looppi jossa menu py”rii}
+      for i:=1 to 4 do {looppi jossa printtaus toimii}
+             begin
+                  if i = korostus then
+                     begin
+                          TextColor(green);
+                     end
+
+                     else
+                     begin
+                          TextColor(white);
+                     end;
+
+            writeln(menu[i]);
+            end;
+
+            ch := ReadKey;
+            ClrScr;
+            if ch = 'P' then
+            begin
+                 korostus := korostus + 1;
+                 if korostus > 4 then
+                    korostus := 4;
+            end;
+            if ch = 'H' then
+            begin
+                 korostus := korostus - 1;
+                 if korostus < 1 then
+                    korostus := 1;
+
+
+            end;
+
+       until ch=#13;
+
+       if 4 = korostus then
+          lopu := 1;
+
+       if 3 = korostus then
+       begin
+          writeln('Max Kalhama');
+          writeln('Year 2016 I am from future');
+          writeln('Press enter to return');
+          Readln;
+       end;
+
+       if 2 = korostus then
+
+       begin
+            writeln('You are playing on left side');
+            writeln('Move with arrow keys');
+            writeln('Press ESC to exit from game to main menu');
+            writeln('Press Enter to return');
+            Readln;
+       end;
+
+       if 1 = korostus then
+       begin
+            alku; {grafiikkatilaan yms valmistelua}
+            repeat {Looppi jossa grafiikka py”rii}
+
+                   palkki; {k„ytt„j„n palkin liikkuminen}
+                   ai; {vihollisen liikkuminen}
+                   pallo; {pallon piirto, aliohjelmissa sen kimpoilu ja respawn}
+                   delay(dela); {viive yhden kierroksen v„lill„}
+            until ch=#27; {lopettaa jos painetaan ESC}
+            leavegame; {muuttujien resettaus kun l„hdet„„n pelist„}
+       end;
+       ClrScr;
+  end;
+
+
+  textcolor(white);
+  ClrScr;
+
+End.
+
